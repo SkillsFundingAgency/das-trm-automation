@@ -56,7 +56,7 @@ stages:
       parameters:
         Environment: PP
         Location: $(ResourceGroupLocation)
-        ServiceConnection: $(ServiceConnection)
+        ServiceConnection: $(ARMServiceConnection)
         SubscriptionId: $(SubscriptionId)
         TemplatePath: $(System.DefaultWorkingDirectory)/das-trm-automation/azure/template.json
         ParametersPath: $(System.DefaultWorkingDirectory)/das-trm-automation/azure/template.parameters.json
@@ -79,7 +79,7 @@ stages:
       parameters:
         Environment: PROD
         Location: $(ResourceGroupLocation)
-        ServiceConnection: $(ServiceConnection)
+        ServiceConnection: $(ARMServiceConnection)
         SubscriptionId: $(SubscriptionId)
         TemplatePath: $(System.DefaultWorkingDirectory)/das-trm-automation/azure/template.json
         ParametersPath: $(System.DefaultWorkingDirectory)/das-trm-automation/azure/template.parameters.json
