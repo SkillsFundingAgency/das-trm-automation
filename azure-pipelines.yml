@@ -1,0 +1,101 @@
+trigger: none
+
+schedules:
+- cron: '0 5 * * 1'
+  displayName: Weekly TRM Scan (Monday 05:00 UTC)
+  branches:
+    include:
+      - main
+  always: true
+
+parameters:
+- name: InfraDeploy
+  displayName: Deploy Storage Account Infrastructure
+  type: boolean
+  default: false
+
+variables:
+- group: RELEASE Management Resources
+- group: RELEASE das-trm-automation
+- name: StorageContainerName
+  value: csv-outputs
+- name: GitHubOrg
+  value: SkillsFundingAgency
+
+resources:
+  repositories:
+  - repository: self
+  - repository: das-platform-building-blocks
+    type: github
+    name: SkillsFundingAgency/das-platform-building-blocks
+    ref: refs/tags/3.0.31
+    endpoint: SkillsFundingAgency
+  - repository: das-platform-automation
+    type: github
+    name: SkillsFundingAgency/das-platform-automation
+    ref: refs/tags/5.1.24
+    endpoint: SkillsFundingAgency
+
+stages:
+
+# Deploys the storage account infrastructure when InfraDeploy is set to true in ADO var group. PP deployment can be deleted after initial setup and InfraDeploy set to false again.  
+- stage: InfraDeploy_PP
+  displayName: Deploy Infrastructure (PP)
+  condition: eq('${{ parameters.InfraDeploy }}', true)
+  variables:
+  - group: PREPROD das-trm-automation
+  - group: PreProd Management Resources
+  jobs:
+  - job: DeployStorageAccount
+    displayName: Deploy Storage Account
+    pool:
+      name: DAS - Continuous Integration Agents
+    steps:
+    - checkout: self
+    - template: azure-pipelines-templates/deploy/step/arm-deploy.yml@das-platform-building-blocks
+      parameters:
+        Environment: PP
+        Location: $(ResourceGroupLocation)
+        ServiceConnection: $(ServiceConnection)
+        SubscriptionId: $(SubscriptionId)
+        TemplatePath: $(System.DefaultWorkingDirectory)/das-trm-automation/azure/template.json
+        ParametersPath: $(System.DefaultWorkingDirectory)/das-trm-automation/azure/template.parameters.json
+        IsMultiRepoCheckout: true
+
+- stage: InfraDeploy_PROD
+  displayName: Deploy Infrastructure (PROD)
+  condition: eq('${{ parameters.InfraDeploy }}', true)
+  variables:
+  - group: PROD das-trm-automation
+  - group: Prod Management Resources
+  jobs:
+  - job: DeployStorageAccount
+    displayName: Deploy Storage Account
+    pool:
+      name: DAS - Continuous Integration Agents
+    steps:
+    - checkout: self
+    - template: azure-pipelines-templates/deploy/step/arm-deploy.yml@das-platform-building-blocks
+      parameters:
+        Environment: PROD
+        Location: $(ResourceGroupLocation)
+        ServiceConnection: $(ServiceConnection)
+        SubscriptionId: $(SubscriptionId)
+        TemplatePath: $(System.DefaultWorkingDirectory)/das-trm-automation/azure/template.json
+        ParametersPath: $(System.DefaultWorkingDirectory)/das-trm-automation/azure/template.parameters.json
+        IsMultiRepoCheckout: true
+
+- stage: TRMScan
+  displayName: TRM Scan
+  dependsOn: InfraDeploy_PROD
+  condition: in(dependencies.InfraDeploy_PROD.result, 'Succeeded', 'Skipped')
+  variables:
+  - group: PROD das-trm-automation
+  - group: Prod Management Resources
+  jobs:
+  - template: pipeline-templates/job/trm-scan.yml
+    parameters:
+      ServiceConnection: $(ServiceConnection)
+      StorageAccountName: $(StorageAccountName)
+      ContainerName: $(StorageContainerName)
+      GitHubOrg: $(GitHubOrg)

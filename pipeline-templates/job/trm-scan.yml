@@ -1,0 +1,107 @@
+parameters:
+- name: ServiceConnection
+  type: string
+- name: StorageAccountName
+  type: string
+- name: ContainerName
+  type: string
+  default: csv-outputs
+- name: GitHubOrg
+  type: string
+  default: SkillsFundingAgency
+
+jobs:
+- job: TRMScan
+  displayName: TRM Scan
+  pool:
+    name: DAS - Continuous Integration Agents
+    workspace:
+      clean: all
+  steps:
+
+  - checkout: self
+
+  - task: PowerShell@2
+    displayName: Create Outputs Directory
+    inputs:
+      targetType: inline
+      script: |
+        $outputDir = "$(Agent.TempDirectory)/outputs"
+        if (-not (Test-Path $outputDir)) {
+          New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+        }
+        Write-Host "Outputs directory: $outputDir"
+
+  - task: PowerShell@2
+    displayName: 'GitHub Scan - Get Repository Package References'
+    inputs:
+      targetType: filePath
+      filePath: $(System.DefaultWorkingDirectory)/scripts/github-scan/Get-GitHubReposCsprojDetails.ps1
+      arguments: >-
+        -OrgName "${{ parameters.GitHubOrg }}"
+        -OutputPath "$(Agent.TempDirectory)/outputs/packages.csv"
+    env:
+      GITHUB_TOKEN: $(GitHubToken)
+
+  - task: PowerShell@2
+    displayName: 'GitHub Scan - Get Repository Frameworks'
+    inputs:
+      targetType: filePath
+      filePath: $(System.DefaultWorkingDirectory)/scripts/github-scan/Get-GitHubReposFrameworks.ps1
+      arguments: >-
+        -OrgName "${{ parameters.GitHubOrg }}"
+        -OutputPath "$(Agent.TempDirectory)/outputs/frameworks.csv"
+    env:
+      GITHUB_TOKEN: $(GitHubToken)
+
+  - task: PowerShell@2
+    displayName: 'GitHub Scan - Get Package Vulnerabilities'
+    inputs:
+      targetType: inline
+      script: |
+        . $(System.DefaultWorkingDirectory)/scripts/github-scan/Get-GitHubPackageVulnerabilities.ps1
+        Get-GitHubPackageVulnerabilities `
+          -InputCsvPath  "$(Agent.TempDirectory)/outputs/packages.csv" `
+          -OutputCsvPath "$(Agent.TempDirectory)/outputs/vulnerabilities.csv"
+    env:
+      GITHUB_TOKEN: $(GitHubToken)
+
+  - task: AzureCLI@2
+    displayName: 'Azure Tag Scan'
+    inputs:
+      azureSubscription: ${{ parameters.ServiceConnection }}
+      scriptType: pscore
+      scriptLocation: scriptPath
+      scriptPath: $(System.DefaultWorkingDirectory)/scripts/azure-tag-scan/Scan-AzureTags.ps1
+      arguments: '-OutputPath "$(Agent.TempDirectory)/outputs/azuretag-scan.csv"'
+
+  - task: AzureCLI@2
+    displayName: 'Upload CSV Outputs to Blob Storage'
+    inputs:
+      azureSubscription: ${{ parameters.ServiceConnection }}
+      scriptType: pscore
+      scriptLocation: inlineScript
+      inlineScript: |
+        $outputDir = "$(Agent.TempDirectory)/outputs"
+        $csvFiles  = Get-ChildItem -Path $outputDir -Filter "*.csv" -ErrorAction SilentlyContinue
+
+        if (-not $csvFiles) {
+          Write-Warning "No CSV files found in $outputDir. Nothing to upload."
+          exit 0
+        }
+
+        $utcStamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-dd_HHmmss")
+
+        az storage blob upload-batch `
+          --source            $outputDir `
+          --destination       "${{ parameters.ContainerName }}" `
+          --destination-path  $utcStamp `
+          --account-name      "${{ parameters.StorageAccountName }}" `
+          --pattern           "*.csv" `
+          --auth-mode         login `
+          --overwrite         true
+
+        if ($LASTEXITCODE -ne 0) {
+          Write-Error "Upload failed with exit code $LASTEXITCODE"
+          exit $LASTEXITCODE
+        }
