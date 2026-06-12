@@ -95,7 +95,7 @@ stages:
   jobs:
   - template: pipeline-templates/job/trm-scan.yml
     parameters:
-      ServiceConnection: $(ServiceConnection)
+      ServiceConnection: SFA-DIG-Prod-ARM
       StorageAccountName: $(StorageAccountName)
       ContainerName: $(StorageContainerName)
       GitHubOrg: $(GitHubOrg)
