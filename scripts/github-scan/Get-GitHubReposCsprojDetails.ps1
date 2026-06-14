@@ -94,14 +94,14 @@ function Search-CsprojFilesInRepo {
 						}
 					}
 				} catch {
-					Write-Warning "Failed to retrieve content for file $filePath in repository $repoName: $_"
+					Write-Warning "Failed to retrieve content for file $filePath in repository ${repoName}: $_"
 				}
 			}
 
 			if ($response.total_count -le $perPage * $page) { break }
 			$page++
 		} catch {
-			Write-Warning "Failed to search for csproj files in repository $repoName: $_"
+			Write-Warning "Failed to search for csproj files in repository ${repoName}: $_"
 			break
 		}
 	} while ($true)
