@@ -98,7 +98,7 @@ function Search-CsprojFilesInRepo {
 						}
 					}
 				} catch {
-					Write-Warning "Failed to retrieve content for file $filePath in repository $repoName: $_"
+					Write-Warning "Failed to retrieve content for file $filePath in repository ${repoName}: $_"
 				}
 			}
 
