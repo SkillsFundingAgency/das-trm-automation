@@ -105,7 +105,7 @@ function Search-CsprojFilesInRepo {
 			if ($response.total_count -le $perPage * $page) { break }
 			$page++
 		} catch {
-			Write-Warning "Failed to search for csproj files in repository $repoName: $_"
+			Write-Warning "Failed to search for csproj files in repository ${repoName}: $_"
 			break
 		}
 	} while ($true)
