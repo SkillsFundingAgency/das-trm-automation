@@ -38,7 +38,7 @@ resources:
 
 stages:
 
-# Deploys the storage account infrastructure when InfraDeploy is set to true in ADO var group. PP deployment can be deleted after initial setup and InfraDeploy set to false again.  
+# Deploys the storage account infrastructure when 'InfraDeploy' is set to true in ADO release var group. PP deployment can be deleted after initial setup and testing.  
 - stage: InfraDeploy_PP
   displayName: Deploy Infrastructure (PP)
   condition: eq('${{ parameters.InfraDeploy }}', true)
