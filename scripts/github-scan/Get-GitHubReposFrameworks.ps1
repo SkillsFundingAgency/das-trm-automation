@@ -98,14 +98,14 @@ function Search-CsprojFilesInRepo {
 						}
 					}
 				} catch {
-					Write-Warning "Failed to retrieve content for file $filePath in repository $repoName: $_"
+					Write-Warning "Failed to retrieve content for file $filePath in repository ${repoName}: $_"
 				}
 			}
 
 			if ($response.total_count -le $perPage * $page) { break }
 			$page++
 		} catch {
-			Write-Warning "Failed to search for csproj files in repository $repoName: $_"
+			Write-Warning "Failed to search for csproj files in repository ${repoName}: $_"
 			break
 		}
 	} while ($true)
@@ -113,15 +113,17 @@ function Search-CsprojFilesInRepo {
 
 # Main
 $repos = Get-Repos -org $OrgName
-if (-not $repos -or $repos.Count -eq 0) { Write-Host "No repositories found for org $OrgName"; return }
+if (-not $repos -or $repos.Count -eq 0) {
+	Write-Host "No repositories found for org $OrgName"
+} else {
+	foreach ($repo in $repos) {
+		$repoName = $repo.name
+		if (-not $repoName.StartsWith("das-", [System.StringComparison]::OrdinalIgnoreCase)) { continue }
 
-foreach ($repo in $repos) {
-	$repoName = $repo.name
-	if (-not $repoName.StartsWith("das-", [System.StringComparison]::OrdinalIgnoreCase)) { continue }
-
-	Write-Host "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'): Searching repository $repoName"
-	Start-Sleep -Seconds 1
-	Search-CsprojFilesInRepo -org $OrgName -repoName $repoName
+		Write-Host "$(Get-Date -Format 'yyyy-MM-dd HH:mm:ss'): Searching repository $repoName"
+		Start-Sleep -Seconds 1
+		Search-CsprojFilesInRepo -org $OrgName -repoName $repoName
+	}
 }
 
 # Ensure local folder exists
